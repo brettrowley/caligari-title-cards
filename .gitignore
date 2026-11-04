@@ -1,0 +1,10 @@
+# Only the public files are published. Everything else in this folder (the font files, the font's source and
+# build scripts, proofs, the Python environment, tool settings) stays local. A new file is ignored until it is
+# added to the list below.
+/*
+!/.gitignore
+!/README.md
+!/LICENSE-Jost.txt
+!/docs/
+/docs/*
+!/docs/index.html
