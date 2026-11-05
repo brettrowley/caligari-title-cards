@@ -270,9 +270,30 @@ html:has(#about[open]) { overflow: hidden; }
 .story .tile { margin: 0; }
 
 @media (max-width: 760px) {
-  body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; overflow: auto; height: auto; min-height: 100%; }
-  .stage { height: calc((100vw - 32px) * .75); }
-  .panel { order: 0; overflow: visible; } /* below the card */
+  /* The page scrolls as a whole, but the card stays pinned at the top. For the first stretch of scrolling the card
+     shrinks (a transform, so its canvases aren't redrawn) and the panel rises with its bottom edge; after that the
+     panel's contents slide up beneath it. The script sets --shrink, the pixels the card has lost so far. */
+  body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: 0; padding: 0; overflow: auto; height: auto; min-height: 100%; }
+  .stage {
+    --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+    --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+    position: sticky; top: 16px; z-index: 1;
+    height: calc((100vw - 32px) * .75);
+    margin: 16px var(--gutter-r) 16px var(--gutter-l);
+    pointer-events: none; /* the stage's box stays full size; only the card and the backdrop behind it take taps */
+  }
+  .stage::before { /* a backdrop that hides the panel as it slides under the card, edged like the panel's top */
+    content: ""; position: absolute; z-index: -1; pointer-events: auto;
+    top: -16px; left: calc(-1 * var(--gutter-l)); right: calc(-1 * var(--gutter-r));
+    height: calc(100% + 32px - var(--shrink, 0px));
+    box-sizing: border-box; background: var(--room); border-bottom: 1px solid var(--line);
+  }
+  #frame { pointer-events: auto; transform-origin: 50% 0; transform: scale(var(--card-scale, 1)); }
+  .panel { /* below the card, full-bleed with only its top edge drawn */
+    order: 0; overflow: visible;
+    border-width: 1px 0 0;
+    padding: 18px max(16px, env(safe-area-inset-right, 0px)) max(18px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  }
   #about { width: 100%; height: 100%; margin: 0; border: 0; }
   .about-head { flex-wrap: wrap; padding: 10px 16px; }
   .about-head .tabs { order: 3; margin-left: 0; width: 100%; }
@@ -1914,7 +1935,22 @@ paintGrain();
 paintLight();
 buildLegend();
 fitCard();
-new ResizeObserver(fitCard).observe(stage);
+new ResizeObserver(() => { fitCard(); shrinkCard(); }).observe(stage);
+
+// On a phone the card shrinks as the page scrolls, down to CARD_MIN of the screen's width in height; past that the
+// settings scroll beneath it. It always opens at full size with the settings at the top.
+const CARD_MIN = 0.4;
+const phoneLayout = matchMedia("(max-width: 760px)");
+function shrinkCard() {
+  const reach = phoneLayout.matches ? Math.max(0, cardH - Math.min(cardH, innerWidth * CARD_MIN)) : 0;
+  const shrink = Math.min(Math.max(window.scrollY, 0), reach);
+  stage.style.setProperty("--shrink", `${shrink}px`);
+  stage.style.setProperty("--card-scale", cardH ? (cardH - shrink) / cardH : 1);
+}
+history.scrollRestoration = "manual";
+addEventListener("scroll", shrinkCard, { passive: true });
+phoneLayout.addEventListener("change", shrinkCard);
+shrinkCard();
 </script>
 </body>
 </html>
